@@ -248,7 +248,7 @@ async function playSingleGame(gameId, basePosition, options) {
     logStream.end();
   }
 
-  return result;
+  return { ...result, logPath };
 }
 
 async function main() {
@@ -300,7 +300,9 @@ async function main() {
         draws += 1;
       }
       console.log(`[Game ${gameId}] result: ${result.winner ?? 'error'}${result.reason ? ` (${result.reason})` : ''}`);
-      console.log(`[Game ${gameId}] log: ${logPath}`);
+      if (result.logPath) {
+        console.log(`[Game ${gameId}] log: ${result.logPath}`);
+      }
     }
   };
 
