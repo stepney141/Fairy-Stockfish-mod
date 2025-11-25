@@ -1,0 +1,5 @@
+setoption name VariantPath value ../variants.ini
+setoption name Threads value 10
+setoption name Hash value 4096
+setoption name USI_Variant value 66shogi
+setoption name EvalFile value ../66shogi.nnue
