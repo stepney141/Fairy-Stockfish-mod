@@ -1,0 +1,9 @@
+{
+  "engineA": "./src/stockfish",
+  "engineB": "./src/stockfish",
+  "initFile": "./engine-options.txt",
+  "nodesPerMove": 500000,
+  "maxPlies": 512,
+  "concurrentGames": 2,
+  "logDir": "./selfplay-logs"
+}
