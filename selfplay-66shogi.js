@@ -188,7 +188,7 @@ class UsiEngine {
   }
 }
 
-async function playSingleGame(gameId, basePosition, options) {
+async function playSingleGame(gameId, basePosition, options, stopSignal) {
   const logPath = path.join(logDir, `${randomUUID()}.txt`);
   const logStream = fs.createWriteStream(logPath, { flags: 'a' });
   const engineA = new UsiEngine(`Game${gameId}-Sente`, enginePathA, logStream);
@@ -203,6 +203,10 @@ async function playSingleGame(gameId, basePosition, options) {
     engines.forEach(e => e.send(startCommand));
 
     for (let ply = 0; ply < maxPlies; ply += 1) {
+      if (stopSignal?.isStopped()) {
+        result = { winner: null, reason: 'stopped', plies: ply };
+        break;
+      }
       const senteTurn = ply % 2 === 0;
       const current = senteTurn ? engineA : engineB;
       const opponent = senteTurn ? engineB : engineA;
@@ -210,7 +214,17 @@ async function playSingleGame(gameId, basePosition, options) {
       const positionCommand = buildPosition(basePosition, moves);
 
       opponent.send(positionCommand);
-      const bestLine = await current.go(nodesPerMove, positionCommand);
+      const bestLine = await Promise.race([
+        current.go(nodesPerMove, positionCommand),
+        stopSignal?.promise.then(() => 'bestmove stop'),
+      ]);
+
+      if (stopSignal?.isStopped()) {
+        engines.forEach(e => e.send('stop'));
+        result = { winner: null, reason: 'stopped', plies: ply };
+        break;
+      }
+
       const [, bestMove = ''] = bestLine.split(/\s+/);
       console.log(`[Game ${gameId}] ${turnLabel} plays: ${bestMove}`);
 
@@ -269,6 +283,14 @@ async function main() {
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout, terminal: true });
   process.stdin.setEncoding('utf8');
   process.stdin.resume();
+  let stopResolve;
+  const stopPromise = new Promise(res => {
+    stopResolve = res;
+  });
+  const stopSignal = {
+    isStopped: () => stopped,
+    promise: stopPromise,
+  };
   const promptUser = () => {
     if (!stopped) rl.prompt();
   };
@@ -278,6 +300,7 @@ async function main() {
   rl.on('line', line => {
     if (line.trim().toLowerCase() === 'q') {
       requestStop();
+      if (stopResolve) stopResolve();
       rl.close();
       return;
     }
@@ -291,7 +314,8 @@ async function main() {
       const gameId = nextGameId;
       nextGameId += 1;
 
-      const result = await playSingleGame(gameId, basePosition, options);
+      const result = await playSingleGame(gameId, basePosition, options, stopSignal);
+      if (result.reason === 'stopped') break;
       if (result.winner === 'sente') {
         senteWins += 1;
       } else if (result.winner === 'gote') {
