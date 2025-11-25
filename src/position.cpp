@@ -53,6 +53,23 @@ namespace Zobrist {
 
 std::ostream& operator<<(std::ostream& os, const Position& pos) {
 
+  const bool isUsi = CurrentProtocol == USI;
+
+  auto for_each_file = [&](auto&& ftor) {
+      for (int f = int(FILE_A); f <= int(pos.max_file()); ++f)
+          ftor(File(f));
+  };
+
+  auto rank_label = [&](Rank r) {
+      return isUsi ? std::string{ char('a' + int(pos.max_rank()) - int(r)) }
+                   : std::to_string(int(r) + 1);
+  };
+
+  auto file_label = [&](File f) {
+      return isUsi ? std::to_string(int(pos.max_file()) - int(f) + 1)
+                   : std::string{ char('a' + int(f)) };
+  };
+
   os << "\n ";
   for (File f = FILE_A; f <= pos.max_file(); ++f)
       os << "+---";
@@ -60,18 +77,19 @@ std::ostream& operator<<(std::ostream& os, const Position& pos) {
 
   for (Rank r = pos.max_rank(); r >= RANK_1; --r)
   {
-      for (File f = FILE_A; f <= pos.max_file(); ++f)
+      for_each_file([&](File f) {
           if (pos.state()->wallSquares & make_square(f, r))
               os << " | *";
           else if (pos.unpromoted_piece_on(make_square(f, r)))
               os << " |+" << pos.piece_to_char()[pos.unpromoted_piece_on(make_square(f, r))];
           else
               os << " | " << pos.piece_to_char()[pos.piece_on(make_square(f, r))];
+      });
 
-      os << " |" << (1 + r);
+      os << " |" << rank_label(r);
       if (r == pos.max_rank() || r == RANK_1)
       {
-          Color c = r == RANK_1 ? WHITE : BLACK;
+          Color c = isUsi ? (r == RANK_1 ? BLACK : WHITE) : (r == RANK_1 ? WHITE : BLACK);
           if (c == pos.side_to_move())
               os << " *";
           else
@@ -90,8 +108,7 @@ std::ostream& operator<<(std::ostream& os, const Position& pos) {
       os << "+\n";
   }
 
-  for (File f = FILE_A; f <= pos.max_file(); ++f)
-      os << "   " << char('a' + f);
+  for_each_file([&](File f) { os << std::setw(4) << file_label(f); });
   os << "\n";
   os << "\nFen: " << pos.fen() << "\nSfen: " << pos.fen(true) << "\nKey: " << std::hex << std::uppercase
      << std::setfill('0') << std::setw(16) << pos.key()
