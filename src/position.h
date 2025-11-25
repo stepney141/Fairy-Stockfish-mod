@@ -1683,7 +1683,7 @@ inline bool Position::choice_group_allows_drop(Color c, PieceType pt) const {
           if (restrict && usage >= group.limit)
               return false;
 
-          if (group.lockUnusedOptions)
+          if (group.lockUnusedOptions && setup_drops_active(c))
           {
               PieceSet used = st->choiceGroupUsedTypes[c][i];
               bool alreadyUsed = used & mask;
